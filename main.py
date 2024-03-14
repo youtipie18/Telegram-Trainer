@@ -66,35 +66,39 @@ def add_video(message):
     used_command = message.text.replace("/", "")
     categories_markup = types.InlineKeyboardMarkup(row_width=1)
 
-    categories = session.query(Category).all()
-    for category in categories:
-        callback = {
-            "mt": "ctg",
-            "cmd": used_command,
-            "data": category.category_id
-        }
-        category_button = types.InlineKeyboardButton(category.name,
-                                                     callback_data=json.dumps(
-                                                         callback,
-                                                         separators=(',', ':')
-                                                     ))
-        categories_markup.add(category_button)
-    if used_command == "add_video":
-        callback = {
-            "mt": "ctg",
-            "cmd": used_command,
-            "data": "new"
-        }
-        new_category_button = types.InlineKeyboardButton("Нова категорія",
+    try:
+        categories = session.query(Category).all()
+        for category in categories:
+            callback = {
+                "mt": "ctg",
+                "cmd": used_command,
+                "data": category.category_id
+            }
+            category_button = types.InlineKeyboardButton(category.name,
                                                          callback_data=json.dumps(
                                                              callback,
                                                              separators=(',', ':')
                                                          ))
-        categories_markup.add(new_category_button)
-    if used_command == "show_video" and len(categories) == 0:
-        bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
-    else:
-        bot.send_message(message.chat.id, "Оберіть категорію нижче:", reply_markup=categories_markup)
+            categories_markup.add(category_button)
+        if used_command == "add_video":
+            callback = {
+                "mt": "ctg",
+                "cmd": used_command,
+                "data": "new"
+            }
+            new_category_button = types.InlineKeyboardButton("Нова категорія",
+                                                             callback_data=json.dumps(
+                                                                 callback,
+                                                                 separators=(',', ':')
+                                                             ))
+            categories_markup.add(new_category_button)
+        if used_command == "show_video" and len(categories) == 0:
+            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
+        else:
+            bot.send_message(message.chat.id, "Оберіть категорію нижче:", reply_markup=categories_markup)
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
 
 @bot.callback_query_handler(func=lambda call: check_callback(call, "ctg"))
@@ -173,13 +177,17 @@ def create_difficulty_markup(cmd, ctg):
 
 
 def add_new_category(message):
-    new_category = Category(name=message.text)
-    session.add(new_category)
-    session.commit()
-    bot.send_message(message.chat.id, "Нову категорію додано!")
+    try:
+        new_category = Category(name=message.text)
+        session.add(new_category)
+        session.commit()
+        bot.send_message(message.chat.id, "Нову категорію додано!")
 
-    bot.send_message(message.chat.id, f"Оберіть рівень складності:",
-                     reply_markup=create_difficulty_markup("add_video", new_category.category_id))
+        bot.send_message(message.chat.id, f"Оберіть рівень складності:",
+                         reply_markup=create_difficulty_markup("add_video", new_category.category_id))
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
 
 if __name__ == '__main__':
