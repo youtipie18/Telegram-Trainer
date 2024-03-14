@@ -31,15 +31,16 @@ class Category(Base):
 
 class Video(Base):
     __tablename__ = "video"
-    video_id = Column("video_id", Integer, primary_key=True)
+    id = Column("id", Integer, primary_key=True)
+    video_id = Column("video_id", Integer, nullable=False)
+    description_id = Column("description_id", Integer, nullable=False)
     category_id = Column("category_id", Integer, ForeignKey("category.category_id"), nullable=False)
     difficulty = Column("difficulty", String, nullable=False)
     chat_id = Column("chat_id", Integer, ForeignKey("user.user_id"), nullable=False)
 
-    # TODO: add column to save voice message
-
-    def __init__(self, video_id, category, difficulty, user):
+    def __init__(self, video_id, description_id, category, difficulty, user):
         self.video_id = video_id
+        self.description_id = description_id
         self.category = category
         self.difficulty = difficulty
         self.user = user

@@ -123,28 +123,33 @@ def difficulty_request_callback(call):
         bot.register_next_step_handler(call.message, save_video, difficulty, category)
     elif data.get("cmd") == "show_video":
         for video in category.videos:
-            send_video(call.message.chat.id, video.chat_id, video.video_id)
+            send_video(call.message.chat.id, video.chat_id, video.video_id, video.description_id)
 
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                   reply_markup=types.InlineKeyboardMarkup())
 
 
-def send_video(chat_id, from_chat_id, message_id):
-    bot.forward_message(chat_id, from_chat_id, message_id)
+def send_video(chat_id, from_chat_id, video_id, description_id):
+    bot.forward_message(chat_id, from_chat_id, video_id)
+    bot.forward_message(chat_id, from_chat_id, description_id)
 
 
 def save_video(message, difficulty, category):
-    try:
-        if message.video:
-            video_message_id = message.message_id
-            current_user = get_current_user(message.chat.id)
-            new_video = Video(video_message_id, category, difficulty, current_user)
-            session.add(new_video)
-            session.commit()
+    if message.video:
+        bot.send_message(message.chat.id, "Тепер надсилайте інструкцію:")
+        bot.register_next_step_handler(message, save_voice, message.message_id, difficulty, category)
+    else:
+        bot.send_message(message.chat.id, "Це не відео єблан")
 
-            bot.send_message(message.chat.id, "Відео додано!")
-        else:
-            bot.send_message(message.chat.id, "Це не відео єблан")
+
+def save_voice(message, video_id, difficulty, category):
+    try:
+        current_user = get_current_user(message.chat.id)
+        new_video = Video(video_id, message.message_id, category, difficulty, current_user)
+        session.add(new_video)
+        session.commit()
+
+        bot.send_message(message.chat.id, "Відео та інструкцію додано!")
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
