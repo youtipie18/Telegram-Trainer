@@ -15,6 +15,10 @@ API_KEY = os.environ["API_KEY"]
 bot = telebot.TeleBot(API_KEY)
 
 
+def get_current_user(uid):
+    return session.query(User).filter(User.user_id == uid).one()
+
+
 def is_admin(uid):
     admin_status = session.query(User).filter(User.user_id == uid).one().admin_status
     return admin_status
@@ -119,7 +123,7 @@ def difficulty_request_callback(call):
         bot.register_next_step_handler(call.message, save_video, difficulty, category)
     elif data.get("cmd") == "show_video":
         for video in category.videos:
-            send_video(call.message.chat.id, call.message.chat.id, video.video_id)
+            send_video(call.message.chat.id, video.chat_id, video.video_id)
 
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                   reply_markup=types.InlineKeyboardMarkup())
@@ -133,7 +137,8 @@ def save_video(message, difficulty, category):
     try:
         if message.video:
             video_message_id = message.message_id
-            new_video = Video(video_message_id, category, difficulty)
+            current_user = get_current_user(message.chat.id)
+            new_video = Video(video_message_id, category, difficulty, current_user)
             session.add(new_video)
             session.commit()
 
