@@ -2,8 +2,6 @@ import telebot
 from telebot import types
 import os
 import json
-# TODO: Improve requests sending with encoding
-import zlib
 
 from db import Session, engine
 from models import *
@@ -16,12 +14,15 @@ bot = telebot.TeleBot(API_KEY)
 
 
 def get_current_user(uid):
-    return session.query(User).filter(User.user_id == uid).one()
+    return session.query(User).filter(User.user_id == uid).first()
 
 
 def is_admin(uid):
-    admin_status = session.query(User).filter(User.user_id == uid).one().admin_status
-    return admin_status
+    user = get_current_user(uid)
+    if user:
+        return user.admin_status
+    else:
+        return False
 
 
 def for_admin():
@@ -63,7 +64,7 @@ def start(message):
 @bot.message_handler(commands=["add_video", "show_video"])
 @for_admin()
 def add_video(message):
-    used_command = message.text.replace("/", "")
+    used_command = message.text.replace("/", "").split("_")[0]
     categories_markup = types.InlineKeyboardMarkup(row_width=1)
 
     try:
@@ -74,25 +75,29 @@ def add_video(message):
                 "cmd": used_command,
                 "data": category.category_id
             }
+            print(json.dumps(callback, separators=(',', ':')))
+            print(len(json.dumps(callback, separators=(',', ':'))))
             category_button = types.InlineKeyboardButton(category.name,
                                                          callback_data=json.dumps(
                                                              callback,
                                                              separators=(',', ':')
                                                          ))
             categories_markup.add(category_button)
-        if used_command == "add_video":
+        if used_command == "add":
             callback = {
                 "mt": "ctg",
                 "cmd": used_command,
                 "data": "new"
             }
+            print(json.dumps(callback, separators=(',', ':')))
+            print(len(json.dumps(callback, separators=(',', ':'))))
             new_category_button = types.InlineKeyboardButton("Нова категорія",
                                                              callback_data=json.dumps(
                                                                  callback,
                                                                  separators=(',', ':')
                                                              ))
             categories_markup.add(new_category_button)
-        if used_command == "show_video" and len(categories) == 0:
+        if used_command == "show" and len(categories) == 0:
             bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
         else:
             bot.send_message(message.chat.id, "Оберіть категорію нижче:", reply_markup=categories_markup)
@@ -122,10 +127,10 @@ def difficulty_request_callback(call):
     category_id = data.get("ctg")
     category = session.query(Category).filter_by(category_id=category_id).first()
 
-    if data.get("cmd") == "add_video":
+    if data.get("cmd") == "add":
         bot.send_message(call.message.chat.id, "Надсилайте відео!")
         bot.register_next_step_handler(call.message, save_video, difficulty, category)
-    elif data.get("cmd") == "show_video":
+    elif data.get("cmd") == "show":
         for video in category.videos:
             send_video(call.message.chat.id, video.chat_id, video.video_id, video.description_id)
 
@@ -168,6 +173,8 @@ def create_difficulty_markup(cmd, ctg):
             "ctg": ctg,
             "diff": button_value
         }
+        print(json.dumps(callback, separators=(',', ':')))
+        print(len(json.dumps(callback, separators=(',', ':'))))
         difficulty_button = types.InlineKeyboardButton(button_name,
                                                        callback_data=json.dumps(
                                                            callback,
@@ -184,7 +191,7 @@ def add_new_category(message):
         bot.send_message(message.chat.id, "Нову категорію додано!")
 
         bot.send_message(message.chat.id, f"Оберіть рівень складності:",
-                         reply_markup=create_difficulty_markup("add_video", new_category.category_id))
+                         reply_markup=create_difficulty_markup("add", new_category.category_id))
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
