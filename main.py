@@ -75,8 +75,6 @@ def add_video(message):
                 "cmd": used_command,
                 "data": category.category_id
             }
-            print(json.dumps(callback, separators=(',', ':')))
-            print(len(json.dumps(callback, separators=(',', ':'))))
             category_button = types.InlineKeyboardButton(category.name,
                                                          callback_data=json.dumps(
                                                              callback,
@@ -89,8 +87,6 @@ def add_video(message):
                 "cmd": used_command,
                 "data": "new"
             }
-            print(json.dumps(callback, separators=(',', ':')))
-            print(len(json.dumps(callback, separators=(',', ':'))))
             new_category_button = types.InlineKeyboardButton("Нова категорія",
                                                              callback_data=json.dumps(
                                                                  callback,
@@ -126,21 +122,78 @@ def difficulty_request_callback(call):
     difficulty = data.get("diff")
     category_id = data.get("ctg")
     category = session.query(Category).filter_by(category_id=category_id).first()
+    videos = session.query(Video).filter_by(category_id=category_id, difficulty=difficulty).all()
 
     if data.get("cmd") == "add":
         bot.send_message(call.message.chat.id, "Надсилайте відео!")
         bot.register_next_step_handler(call.message, save_video, difficulty, category)
     elif data.get("cmd") == "show":
-        for video in category.videos:
-            send_video(call.message.chat.id, video.chat_id, video.video_id, video.description_id)
+        if videos:
+            for video in videos:
+                send_video(call.message.chat.id, video.chat_id, video.video_id, video.description_id)
+        else:
+            bot.send_message(call.message.chat.id, "Відео нема😪")
 
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                   reply_markup=types.InlineKeyboardMarkup())
 
 
+@bot.callback_query_handler(func=lambda call: check_callback(call, "op_s"))
+def open_settings_request_callback(call):
+    video_id = json.loads(call.data).get("vid")
+    change_markup = types.InlineKeyboardMarkup()
+    for button_name, button_value in [("Змінити відео", "vd"), ("Змінити інструкцію", "vc"), ("Видалити", "del")]:
+        callback = {
+            "mt": "chng",
+            "vid": video_id,
+            "op": button_value
+        }
+        button = types.InlineKeyboardButton(button_name,
+                                            callback_data=json.dumps(
+                                                callback,
+                                                separators=(',', ':')))
+        change_markup.add(button)
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
+                                  reply_markup=change_markup)
+
+
+@bot.callback_query_handler(func=lambda call: check_callback(call, "chng"))
+def settings_request_callback(call):
+    data = json.loads(call.data)
+    operation = data.get("op")
+
+    video = session.query(Video).filter_by(video_id=data.get("vid")).first()
+    if video:
+        if operation == "vd":
+            bot.send_message(call.message.chat.id, "Відправте нове відео:")
+            bot.register_next_step_handler(call.message, change_video, video)
+        elif operation == "vc":
+            bot.send_message(call.message.chat.id, "Відправте нову інструкцію:")
+            bot.register_next_step_handler(call.message, change_voice, video)
+        elif operation == "del":
+            session.delete(video)
+            session.commit()
+            bot.send_message(call.message.chat.id, "Вправу видалено!")
+
+        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
+                                      reply_markup=types.InlineKeyboardMarkup())
+    else:
+        bot.send_message(call.message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
 def send_video(chat_id, from_chat_id, video_id, description_id):
     bot.forward_message(chat_id, from_chat_id, video_id)
     bot.forward_message(chat_id, from_chat_id, description_id)
+    callback = {
+        "mt": "op_s",
+        "vid": video_id
+    }
+    settings_markup = types.InlineKeyboardMarkup()
+    settings_markup.add(
+        types.InlineKeyboardButton(
+            "⚙", callback_data=json.dumps(callback, separators=(",", ":"))
+        ))
+    bot.send_message(chat_id, "Дії над вправою⬇", reply_markup=settings_markup)
 
 
 def save_video(message, difficulty, category):
@@ -164,6 +217,26 @@ def save_voice(message, video_id, difficulty, category):
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
 
+def change_video(message, video):
+    try:
+        video.video_id = message.message_id
+        session.commit()
+        bot.send_message(message.chat.id, "Відео змінено!")
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
+def change_voice(message, video):
+    try:
+        video.description_id = message.message_id
+        session.commit()
+        bot.send_message(message.chat.id, "Інструкцію змінено!")
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
 def create_difficulty_markup(cmd, ctg):
     difficulty_markup = types.InlineKeyboardMarkup(row_width=1)
     for button_name, button_value in [("Новачок", 1), ("Середнячок", 2), ("Профі", 3)]:
@@ -173,8 +246,6 @@ def create_difficulty_markup(cmd, ctg):
             "ctg": ctg,
             "diff": button_value
         }
-        print(json.dumps(callback, separators=(',', ':')))
-        print(len(json.dumps(callback, separators=(',', ':'))))
         difficulty_button = types.InlineKeyboardButton(button_name,
                                                        callback_data=json.dumps(
                                                            callback,
