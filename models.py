@@ -6,11 +6,13 @@ from db import Base
 class User(Base):
     __tablename__ = "user"
     user_id = Column("user_id", Integer, primary_key=True)
+    username = Column("username", String, default=None)
     admin_status = Column("is_admin", Boolean, nullable=False, default=False)
     videos = relationship("Video", backref="user")
 
-    def __init__(self, user_id):
+    def __init__(self, user_id, username):
         self.user_id = user_id
+        self.username = username
 
     def __repr__(self):
         return f"User №{self.user_id}"

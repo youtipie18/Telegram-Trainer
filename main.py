@@ -49,7 +49,7 @@ def check_callback(call, method):
 
 @bot.message_handler(commands=["start"])
 def start(message):
-    user = User(message.from_user.id)
+    user = User(message.from_user.id, message.from_user.username)
     if not session.query(User).filter(User.user_id == message.from_user.id).scalar():
         session.add(user)
         session.commit()
