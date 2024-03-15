@@ -102,6 +102,29 @@ def add_video(message):
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
 
+@bot.message_handler(commands=["delete_category"])
+@for_admin()
+def delete_category(message):
+    try:
+        categories_markup = types.InlineKeyboardMarkup(row_width=1)
+        categories = session.query(Category).all()
+        for category in categories:
+            callback = {
+                "mt": "ctg_del",
+                "ctg": category.category_id
+            }
+            category_button = types.InlineKeyboardButton(category.name,
+                                                         callback_data=json.dumps(
+                                                             callback,
+                                                             separators=(',', ':')
+                                                         ))
+            categories_markup.add(category_button)
+        bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете видалити:", reply_markup=categories_markup)
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
 @bot.callback_query_handler(func=lambda call: check_callback(call, "ctg"))
 def category_request_callback(call):
     data = json.loads(call.data)
@@ -179,6 +202,18 @@ def settings_request_callback(call):
                                       reply_markup=types.InlineKeyboardMarkup())
     else:
         bot.send_message(call.message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
+@bot.callback_query_handler(func=lambda call: check_callback(call, "ctg_del"))
+def category_delete_request_callback(call):
+    category_id = json.loads(call.data).get("ctg")
+    bot.send_message(call.message.chat.id,
+                     "Ви впевненні? При видалені категорії, "
+                     "видаляються також усі відео та голосові повідомлення.\n"
+                     "Введіть 'Так' для підтвердження.")
+    bot.register_next_step_handler(call.message, delete_category_from_db, category_id)
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
+                                  reply_markup=types.InlineKeyboardMarkup())
 
 
 def send_video(chat_id, from_chat_id, video_id, description_id):
@@ -263,6 +298,19 @@ def add_new_category(message):
 
         bot.send_message(message.chat.id, f"Оберіть рівень складності:",
                          reply_markup=create_difficulty_markup("add", new_category.category_id))
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
+def delete_category_from_db(message, category_id):
+    try:
+        category = session.query(Category).filter_by(category_id=category_id).first()
+        for video in category.videos:
+            session.delete(video)
+        session.delete(category)
+        session.commit()
+        bot.send_message(message.chat.id, "Категорію успішно видалено!")
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
