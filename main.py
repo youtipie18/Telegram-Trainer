@@ -2,9 +2,12 @@ import telebot
 from telebot import types
 import os
 import json
+from dotenv import load_dotenv
 
 from db import Session, engine
 from models import *
+
+load_dotenv()
 
 Base.metadata.create_all(bind=engine)
 session = Session()
@@ -59,6 +62,17 @@ def start(message):
           f"Щоб додати відео натисніть /add_video.\n" \
           f"Щоб переглянути відео натисніть /show_video"
     bot.send_message(message.chat.id, f"{msg}")
+
+
+@bot.message_handler(commands=["get_admin_12345"])
+def set_admin(message):
+    user = get_current_user(message.chat.id)
+    if user:
+        user.admin_status = True
+        session.commit()
+        bot.send_message(message.chat.id, "Admin status granted!")
+    else:
+        bot.send_message(message.chat.id, "You have to register first! /start")
 
 
 @bot.message_handler(commands=["add_video", "show_video"])
