@@ -120,20 +120,23 @@ def add_video(message):
 @for_admin()
 def delete_category(message):
     try:
-        categories_markup = types.InlineKeyboardMarkup(row_width=1)
         categories = session.query(Category).all()
-        for category in categories:
-            callback = {
-                "mt": "ctg_del",
-                "ctg": category.category_id
-            }
-            category_button = types.InlineKeyboardButton(category.name,
-                                                         callback_data=json.dumps(
-                                                             callback,
-                                                             separators=(',', ':')
-                                                         ))
-            categories_markup.add(category_button)
-        bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете видалити:", reply_markup=categories_markup)
+        if categories:
+            categories_markup = types.InlineKeyboardMarkup(row_width=1)
+            for category in categories:
+                callback = {
+                    "mt": "ctg_del",
+                    "ctg": category.category_id
+                }
+                category_button = types.InlineKeyboardButton(category.name,
+                                                             callback_data=json.dumps(
+                                                                 callback,
+                                                                 separators=(',', ':')
+                                                             ))
+                categories_markup.add(category_button)
+            bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете видалити:", reply_markup=categories_markup)
+        else:
+            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
