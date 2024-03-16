@@ -318,16 +318,17 @@ def add_new_category(message):
 
 
 def delete_category_from_db(message, category_id):
-    try:
-        category = session.query(Category).filter_by(category_id=category_id).first()
-        for video in category.videos:
-            session.delete(video)
-        session.delete(category)
-        session.commit()
-        bot.send_message(message.chat.id, "Категорію успішно видалено!")
-    except Exception as e:
-        print(e)
-        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+    if message.text.lower() == "так":
+        try:
+            category = session.query(Category).filter_by(category_id=category_id).first()
+            for video in category.videos:
+                session.delete(video)
+            session.delete(category)
+            session.commit()
+            bot.send_message(message.chat.id, "Категорію успішно видалено!")
+        except Exception as e:
+            print(e)
+            bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
 
 if __name__ == '__main__':
