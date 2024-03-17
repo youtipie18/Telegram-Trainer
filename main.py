@@ -79,22 +79,11 @@ def set_admin(message):
 @for_admin()
 def add_video(message):
     used_command = message.text.replace("/", "").split("_")[0]
-    categories_markup = types.InlineKeyboardMarkup(row_width=1)
 
     try:
         categories = session.query(Category).all()
-        for category in categories:
-            callback = {
-                "mt": "ctg",
-                "cmd": used_command,
-                "ctg": category.category_id
-            }
-            category_button = types.InlineKeyboardButton(category.name,
-                                                         callback_data=json.dumps(
-                                                             callback,
-                                                             separators=(',', ':')
-                                                         ))
-            categories_markup.add(category_button)
+        categories_markup = create_category_markup("ctg", categories=categories, command=used_command)
+
         if len(categories) == 0:
             bot.send_message(message.chat.id, "Немає категорій! Використайте /add_category, щоб додати категорію.")
         else:
@@ -117,7 +106,7 @@ def delete_category(message):
     try:
         categories = session.query(Category).all()
         if categories:
-            categories_markup = create_category_markup("ctg_del", categories)
+            categories_markup = create_category_markup("ctg_del", categories=categories, command=None)
             bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете видалити:",
                              reply_markup=categories_markup)
         else:
@@ -133,7 +122,7 @@ def rename_category(message):
     try:
         categories = session.query(Category).all()
         if categories:
-            categories_markup = create_category_markup("ctg_rnm", categories)
+            categories_markup = create_category_markup("ctg_rnm", categories=categories, command=None)
             bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете перейменувати:",
                              reply_markup=categories_markup)
         else:
@@ -244,9 +233,9 @@ def category_rename_request_callback(call):
 
 
 def send_video(chat_id, from_chat_id, video_id, description_id):
-    bot.forward_message(chat_id, from_chat_id, video_id)
+    bot.forward_message(chat_id, from_chat_id, video_id, protect_content=True)
     if description_id:
-        bot.forward_message(chat_id, from_chat_id, description_id)
+        bot.forward_message(chat_id, from_chat_id, description_id, protect_content=True)
     callback = {
         "mt": "op_s",
         "vid": video_id
@@ -325,6 +314,7 @@ def create_difficulty_markup(cmd, ctg):
             "ctg": ctg,
             "diff": button_value
         }
+        button_name = f"{button_name}({session.query(Video).filter_by(difficulty=button_value).count()} 🎬)"
         difficulty_button = types.InlineKeyboardButton(button_name,
                                                        callback_data=json.dumps(
                                                            callback,
@@ -333,14 +323,16 @@ def create_difficulty_markup(cmd, ctg):
     return difficulty_markup
 
 
-def create_category_markup(method, categories):
+def create_category_markup(method, command, categories):
     categories_markup = types.InlineKeyboardMarkup(row_width=1)
     for category in categories:
         callback = {
             "mt": method,
+            "cmd": command,
             "ctg": category.category_id
         }
-        category_button = types.InlineKeyboardButton(category.name,
+        button_name = f"{category.name}({len(category.videos)} 🎬)"
+        category_button = types.InlineKeyboardButton(button_name,
                                                      callback_data=json.dumps(
                                                          callback,
                                                          separators=(',', ':')
