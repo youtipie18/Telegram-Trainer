@@ -87,7 +87,7 @@ def add_video(message):
             callback = {
                 "mt": "ctg",
                 "cmd": used_command,
-                "data": category.category_id
+                "ctg": category.category_id
             }
             category_button = types.InlineKeyboardButton(category.name,
                                                          callback_data=json.dumps(
@@ -95,20 +95,8 @@ def add_video(message):
                                                              separators=(',', ':')
                                                          ))
             categories_markup.add(category_button)
-        if used_command in ["add", "bulk"]:
-            callback = {
-                "mt": "ctg",
-                "cmd": used_command,
-                "data": "new"
-            }
-            new_category_button = types.InlineKeyboardButton("Нова категорія",
-                                                             callback_data=json.dumps(
-                                                                 callback,
-                                                                 separators=(',', ':')
-                                                             ))
-            categories_markup.add(new_category_button)
-        if used_command == "show" and len(categories) == 0:
-            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
+        if len(categories) == 0:
+            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_category, щоб додати категорію.")
         else:
             bot.send_message(message.chat.id, "Оберіть категорію нижче:", reply_markup=categories_markup)
     except Exception as e:
@@ -133,7 +121,7 @@ def delete_category(message):
             bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете видалити:",
                              reply_markup=categories_markup)
         else:
-            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
+            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_category, щоб додати категорію.")
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
@@ -149,7 +137,7 @@ def rename_category(message):
             bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете перейменувати:",
                              reply_markup=categories_markup)
         else:
-            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
+            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_category, щоб додати категорію.")
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
@@ -159,12 +147,9 @@ def rename_category(message):
 def category_request_callback(call):
     data = json.loads(call.data)
 
-    if data.get("data") == "new":
-        bot.send_message(call.message.chat.id, "Введіть назву нової категорії:")
-        bot.register_next_step_handler(call.message, add_new_category_and_video)
-    else:
-        difficulty_markup = create_difficulty_markup(data.get("cmd"), data.get("data"))
-        bot.send_message(call.message.chat.id, f"Оберіть рівень складності:", reply_markup=difficulty_markup)
+    difficulty_markup = create_difficulty_markup(data.get("cmd"), data.get("ctg"))
+    bot.send_message(call.message.chat.id, f"Оберіть рівень складності:", reply_markup=difficulty_markup)
+
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                   reply_markup=types.InlineKeyboardMarkup())
 
@@ -371,19 +356,6 @@ def add_new_category(message):
         session.add(new_category)
         session.commit()
         bot.send_message(message.chat.id, "Нову категорію додано!")
-    except Exception as e:
-        print(e)
-        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
-
-
-def add_new_category_and_video(message):
-    try:
-        new_category = Category(name=message.text)
-        session.add(new_category)
-        session.commit()
-        bot.send_message(message.chat.id, "Нову категорію додано!")
-        bot.send_message(message.chat.id, f"Оберіть рівень складності:",
-                         reply_markup=create_difficulty_markup("add", new_category.category_id))
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
