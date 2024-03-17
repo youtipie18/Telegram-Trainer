@@ -75,7 +75,7 @@ def set_admin(message):
         bot.send_message(message.chat.id, "You have to register first! /start")
 
 
-@bot.message_handler(commands=["add_video", "show_video"])
+@bot.message_handler(commands=["add_video", "show_video", "bulk_add_video"])
 @for_admin()
 def add_video(message):
     used_command = message.text.replace("/", "").split("_")[0]
@@ -95,7 +95,7 @@ def add_video(message):
                                                              separators=(',', ':')
                                                          ))
             categories_markup.add(category_button)
-        if used_command == "add":
+        if used_command in ["add", "bulk"]:
             callback = {
                 "mt": "ctg",
                 "cmd": used_command,
@@ -186,6 +186,9 @@ def difficulty_request_callback(call):
                 send_video(call.message.chat.id, video.chat_id, video.video_id, video.description_id)
         else:
             bot.send_message(call.message.chat.id, "Відео нема😪")
+    elif data.get("cmd") == "bulk":
+        bot.send_message(call.message.chat.id, "Надсилайте відео!")
+        bot.register_next_step_handler(call.message, bulk_add, difficulty, category)
 
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                   reply_markup=types.InlineKeyboardMarkup())
@@ -257,7 +260,8 @@ def category_rename_request_callback(call):
 
 def send_video(chat_id, from_chat_id, video_id, description_id):
     bot.forward_message(chat_id, from_chat_id, video_id)
-    bot.forward_message(chat_id, from_chat_id, description_id)
+    if description_id:
+        bot.forward_message(chat_id, from_chat_id, description_id)
     callback = {
         "mt": "op_s",
         "vid": video_id
@@ -286,6 +290,22 @@ def save_voice(message, video_id, difficulty, category):
         session.commit()
 
         bot.send_message(message.chat.id, "Відео та інструкцію додано!")
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
+def bulk_add(message, difficulty, category):
+    last_message = bot.send_message(message.chat.id, "Додаю відео....")
+    videos = list(range(message.message_id, last_message.message_id))
+
+    try:
+        current_user = get_current_user(message.chat.id)
+        for video_id in videos:
+            video = Video(video_id, None, category, difficulty, current_user)
+            session.add(video)
+            session.commit()
+        bot.send_message(message.chat.id, "Відео додано!")
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")

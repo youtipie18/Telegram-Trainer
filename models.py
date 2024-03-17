@@ -35,7 +35,7 @@ class Video(Base):
     __tablename__ = "video"
     id = Column("id", Integer, primary_key=True)
     video_id = Column("video_id", Integer, nullable=False)
-    description_id = Column("description_id", Integer, nullable=False)
+    description_id = Column("description_id", Integer, nullable=True)
     category_id = Column("category_id", Integer, ForeignKey("category.category_id"), nullable=False)
     difficulty = Column("difficulty", String, nullable=False)
     chat_id = Column("chat_id", Integer, ForeignKey("user.user_id"), nullable=False)
