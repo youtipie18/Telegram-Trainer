@@ -116,6 +116,13 @@ def add_video(message):
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
 
+@bot.message_handler(commands=["add_category"])
+@for_admin()
+def add_category(message):
+    bot.send_message(message.chat.id, "Введіть назву нової категорії:")
+    bot.register_next_step_handler(message, add_new_category)
+
+
 @bot.message_handler(commands=["delete_category"])
 @for_admin()
 def delete_category(message):
@@ -154,7 +161,7 @@ def category_request_callback(call):
 
     if data.get("data") == "new":
         bot.send_message(call.message.chat.id, "Введіть назву нової категорії:")
-        bot.register_next_step_handler(call.message, add_new_category)
+        bot.register_next_step_handler(call.message, add_new_category_and_video)
     else:
         difficulty_markup = create_difficulty_markup(data.get("cmd"), data.get("data"))
         bot.send_message(call.message.chat.id, f"Оберіть рівень складності:", reply_markup=difficulty_markup)
@@ -306,7 +313,7 @@ def change_voice(message, video):
 
 def create_difficulty_markup(cmd, ctg):
     difficulty_markup = types.InlineKeyboardMarkup(row_width=1)
-    for button_name, button_value in [("Новачок", 1), ("Середнячок", 2), ("Профі", 3)]:
+    for button_name, button_value in [("Дім", 1), ("Зал", 2)]:
         callback = {
             "mt": "diff",
             "cmd": cmd,
@@ -344,7 +351,17 @@ def add_new_category(message):
         session.add(new_category)
         session.commit()
         bot.send_message(message.chat.id, "Нову категорію додано!")
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
+
+def add_new_category_and_video(message):
+    try:
+        new_category = Category(name=message.text)
+        session.add(new_category)
+        session.commit()
+        bot.send_message(message.chat.id, "Нову категорію додано!")
         bot.send_message(message.chat.id, f"Оберіть рівень складності:",
                          reply_markup=create_difficulty_markup("add", new_category.category_id))
     except Exception as e:
