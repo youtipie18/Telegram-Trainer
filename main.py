@@ -252,8 +252,12 @@ def save_video(message, difficulty, category):
     if message.video:
         bot.send_message(message.chat.id, "Тепер надсилайте інструкцію:")
         bot.register_next_step_handler(message, save_voice, message.message_id, difficulty, category)
+    elif message.text.lower() == "стоп":
+        bot.send_message(message.chat.id, "Операцію зупинено!")
     else:
-        bot.send_message(message.chat.id, "Це не відео єблан")
+        bot.send_message(message.chat.id, "Це не відео. Спробуйте ще раз! "
+                                          "Напишіть стоп, щоб припинити додавання відео.")
+        bot.register_next_step_handler(message, save_video, difficulty, category)
 
 
 def save_voice(message, video_id, difficulty, category):
