@@ -122,19 +122,25 @@ def delete_category(message):
     try:
         categories = session.query(Category).all()
         if categories:
-            categories_markup = types.InlineKeyboardMarkup(row_width=1)
-            for category in categories:
-                callback = {
-                    "mt": "ctg_del",
-                    "ctg": category.category_id
-                }
-                category_button = types.InlineKeyboardButton(category.name,
-                                                             callback_data=json.dumps(
-                                                                 callback,
-                                                                 separators=(',', ':')
-                                                             ))
-                categories_markup.add(category_button)
-            bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете видалити:", reply_markup=categories_markup)
+            categories_markup = create_category_markup("ctg_del", categories)
+            bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете видалити:",
+                             reply_markup=categories_markup)
+        else:
+            bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
+@bot.message_handler(commands=["rename_category"])
+@for_admin()
+def rename_category(message):
+    try:
+        categories = session.query(Category).all()
+        if categories:
+            categories_markup = create_category_markup("ctg_rnm", categories)
+            bot.send_message(message.chat.id, "Оберіть категорію яку ви хочете перейменувати:",
+                             reply_markup=categories_markup)
         else:
             bot.send_message(message.chat.id, "Немає категорій! Використайте /add_video, щоб додати категорію.")
     except Exception as e:
@@ -233,6 +239,15 @@ def category_delete_request_callback(call):
                                   reply_markup=types.InlineKeyboardMarkup())
 
 
+@bot.callback_query_handler(func=lambda call: check_callback(call, "ctg_rnm"))
+def category_rename_request_callback(call):
+    category_id = json.loads(call.data).get("ctg")
+    bot.send_message(call.message.chat.id, "Введіть нову назву для категорії:")
+    bot.register_next_step_handler(call.message, rename_category_from_db, category_id)
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
+                                  reply_markup=types.InlineKeyboardMarkup())
+
+
 def send_video(chat_id, from_chat_id, video_id, description_id):
     bot.forward_message(chat_id, from_chat_id, video_id)
     bot.forward_message(chat_id, from_chat_id, description_id)
@@ -306,6 +321,23 @@ def create_difficulty_markup(cmd, ctg):
     return difficulty_markup
 
 
+def create_category_markup(method, categories):
+    categories_markup = types.InlineKeyboardMarkup(row_width=1)
+    for category in categories:
+        callback = {
+            "mt": method,
+            "ctg": category.category_id
+        }
+        category_button = types.InlineKeyboardButton(category.name,
+                                                     callback_data=json.dumps(
+                                                         callback,
+                                                         separators=(',', ':')
+                                                     ))
+        categories_markup.add(category_button)
+
+    return categories_markup
+
+
 def add_new_category(message):
     try:
         new_category = Category(name=message.text)
@@ -332,6 +364,17 @@ def delete_category_from_db(message, category_id):
         except Exception as e:
             print(e)
             bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
+def rename_category_from_db(message, category_id):
+    try:
+        category = session.query(Category).filter_by(category_id=category_id).first()
+        category.name = message.text.strip()
+        session.commit()
+        bot.send_message(message.chat.id, "Категорію успішно перейменовано!")
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
 
 
 if __name__ == '__main__':
