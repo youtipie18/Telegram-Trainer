@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Boolean, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from db import Base
 
@@ -9,6 +9,12 @@ class User(Base):
     username = Column("username", String, default=None)
     admin_status = Column("is_admin", Boolean, nullable=False, default=False)
     videos = relationship("Video", backref="user")
+
+    sex = Column("sex", String, nullable=True)
+    height = Column("height", Float, nullable=True)
+    weight = Column("weight", Float, nullable=True)
+    age = Column("age", Integer, nullable=True)
+    workout_time = Column("workout_time", Float, nullable=True)
 
     def __init__(self, user_id, username):
         self.user_id = user_id
