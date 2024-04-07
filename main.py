@@ -65,7 +65,10 @@ def start(message):
 
 
 def create_profile_message(user, chat_id):
-    sex = "Чоловік" if user.sex == "male" else "Жінка"
+    if user.sex:
+        sex = "Чоловік" if user.sex == "male" else "Жінка"
+    else:
+        sex = None
     msg = f"Ваша стать: {sex}\n" \
           f"Ваш вік: {user.age}\n" \
           f"Ваш зріст: {user.height} м.\n" \
