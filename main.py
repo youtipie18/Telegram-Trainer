@@ -64,6 +64,111 @@ def start(message):
     bot.send_message(message.chat.id, f"{msg}")
 
 
+def create_profile_message(user, chat_id):
+    sex = "Чоловік" if user.sex == "male" else "Жінка"
+    msg = f"Ваша стать: {sex}\n" \
+          f"Ваш вік: {user.age}\n" \
+          f"Ваш зріст: {user.height} м.\n" \
+          f"Ваша вага: {user.weight} кг.\n" \
+          f"Віш час тренування: {user.workout_time} год.\n"
+    if user.age and user.weight and user.height:
+
+        if user.sex == "male":
+            calories = round((9.99 * user.weight) + (6.25 * user.height) - (4.92 * user.age) + 5, 2)
+        else:
+            calories = round((9.99 * user.weight) + (6.25 * user.height) - (4.92 * user.age) - 161, 2)
+        if user.workout_time:
+            water = f"{round(30 * user.weight + 500 * user.workout_time)}-{round(35 * user.weight + 500 * user.workout_time)}"
+        else:
+            water = f"{round(30 * user.weight)}-{round(35 * user.weight)}"
+        msg += f"Ваші калорії: {calories} ккал.\n" \
+               f"Ваш водневий баланс: {water} мл.\n"
+
+    callback = {
+        "mt": "profile_op_s"
+    }
+    settings_markup = types.InlineKeyboardMarkup()
+    settings_markup.add(
+        types.InlineKeyboardButton(
+            "⚙", callback_data=json.dumps(callback, separators=(",", ":"))
+        ))
+    bot.send_message(chat_id, msg, reply_markup=settings_markup)
+
+
+@bot.message_handler(commands=["profile"])
+@for_admin()
+def profile(message):
+    user = get_current_user(message.chat.id)
+    create_profile_message(user, message.chat.id)
+
+
+@bot.callback_query_handler(func=lambda call: check_callback(call, "profile_op_s"))
+def open_profile_settings_request_callback(call):
+    change_markup = types.InlineKeyboardMarkup()
+    for button_name, button_value in [("Змінити стать", "sex"), ("Змінити вік", "age"), ("Змінити зріст", "height"),
+                                      ("Змінити вагу", "weight"), ("Змінити час тренування", "time")]:
+        callback = {
+            "mt": "prfile_chng",
+            "op": button_value
+        }
+        button = types.InlineKeyboardButton(button_name,
+                                            callback_data=json.dumps(
+                                                callback,
+                                                separators=(',', ':')))
+        change_markup.add(button)
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
+                                  reply_markup=change_markup)
+
+
+@bot.callback_query_handler(func=lambda call: check_callback(call, "prfile_chng"))
+def change_profile(call):
+    data = json.loads(call.data)
+    if data.get("op") == "age":
+        msg = "Введіть новий вік:"
+    elif data.get("op") == "weight":
+        msg = "Введіть нову вагу в кг:"
+    elif data.get("op") == "height":
+        msg = "Введіть новий зріст у метрах:"
+    elif data.get("op") == "time":
+        msg = "Введіть новий час тренування у годинах (Наприклад одна година, тридцять хвилин буде 1.5):"
+    else:
+        msg = "Оберіть нову стать:"
+
+    change_markup = types.InlineKeyboardMarkup()
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=change_markup)
+    if data.get("op") != "sex":
+        bot.send_message(call.message.chat.id, msg)
+        bot.register_next_step_handler(call.message, change_profile_db, data.get("op"))
+    else:
+        markup = types.InlineKeyboardMarkup()
+        for button_name, button_value in [("Чоловік", "male"), ("Жінка", "female")]:
+            callback = {
+                "mt": "chng_sex",
+                "v": button_value
+            }
+            button = types.InlineKeyboardButton(button_name,
+                                                callback_data=json.dumps(
+                                                    callback,
+                                                    separators=(',', ':')))
+            markup.add(button)
+        bot.send_message(call.message.chat.id, msg, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: check_callback(call, "chng_sex"))
+def change_sex(call):
+    data = json.loads(call.data)
+    user = get_current_user(call.message.chat.id)
+    user.sex = data.get("v")
+    session.commit()
+    change_markup = types.InlineKeyboardMarkup()
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
+                                  reply_markup=change_markup)
+    bot.send_message(call.message.chat.id, "Стать успішно змінено!")
+
+    user = get_current_user(call.message.chat.id)
+    create_profile_message(user, call.message.chat.id)
+
+
 @bot.message_handler(commands=["get_admin_12345"])
 def set_admin(message):
     user = get_current_user(message.chat.id)
@@ -377,6 +482,25 @@ def rename_category_from_db(message, category_id):
         category.name = message.text.strip()
         session.commit()
         bot.send_message(message.chat.id, "Категорію успішно перейменовано!")
+    except Exception as e:
+        print(e)
+        bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
+
+
+def change_profile_db(message, value_to_change):
+    try:
+        user = get_current_user(message.chat.id)
+        if value_to_change == "age":
+            user.age = float(message.text.strip().replace(",", "."))
+        elif value_to_change == "weight":
+            user.weight = float(message.text.strip().replace(",", "."))
+        elif value_to_change == "height":
+            user.height = float(message.text.strip().replace(",", "."))
+        elif value_to_change == "time":
+            user.workout_time = float(message.text.strip().replace(",", "."))
+        session.commit()
+        bot.send_message(message.chat.id, "Значення успішно змінено!")
+        create_profile_message(user, message.chat.id)
     except Exception as e:
         print(e)
         bot.send_message(message.chat.id, "Виникла помилка, спробуйте ще раз або зв'яжіться з розробником.")
