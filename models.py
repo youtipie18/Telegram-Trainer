@@ -14,7 +14,9 @@ class User(Base):
     height = Column("height", Float, nullable=True)
     weight = Column("weight", Float, nullable=True)
     age = Column("age", Integer, nullable=True)
-    workout_time = Column("workout_time", Float, nullable=True)
+    # workout_time = Column("workout_time", Float, nullable=True)
+    activity = Column("activity", Integer, nullable=True)
+    goal = Column("goal", Integer, nullable=True)
 
     def __init__(self, user_id, username):
         self.user_id = user_id
