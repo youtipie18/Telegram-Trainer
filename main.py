@@ -25,7 +25,7 @@ def is_admin(uid):
     if user:
         return user.admin_status
     else:
-        return False
+        return True  # Temporary True for now
 
 
 def for_admin():
@@ -50,6 +50,19 @@ def check_callback(call, method):
     return data.get("mt") == method
 
 
+def get_activity_lists():
+    names = ['Мінімальна активність', '3 рази в тиждень', '5 раз в тиждень', '5 раз в тиждень (Інтенсивно)',
+             'Кожен день', 'Два рази в день', 'Щоденне фізичне навантаження + Фізична робота']
+    values = [1, 2, 3, 4, 5, 6, 7]
+    return names, values
+
+
+def get_goal_lists():
+    names = ['Підтримка форми', 'Набір маси', 'Схуднення']
+    values = [1, 2, 3]
+    return names, values
+
+
 @bot.message_handler(commands=["start"])
 def start(message):
     user = User(message.from_user.id, message.from_user.username)
@@ -69,23 +82,31 @@ def create_profile_message(user, chat_id):
         sex = "Чоловік" if user.sex == "male" else "Жінка"
     else:
         sex = None
+    if user.activity:
+        activity = get_activity_lists()[0][user.activity - 1]
+    else:
+        activity = None
+    if user.goal:
+        goal = get_goal_lists()[0][user.goal - 1]
+    else:
+        goal = None
+
     msg = f"Ваша стать: {sex}\n" \
           f"Ваш вік: {user.age}\n" \
-          f"Ваш зріст: {user.height} м.\n" \
+          f"Ваш зріст: {user.height} см.\n" \
           f"Ваша вага: {user.weight} кг.\n" \
-          f"Віш час тренування: {user.workout_time} год.\n"
-    if user.age and user.weight and user.height:
+          f"Ваш рівень фіз. активності: {activity}.\n" \
+          f"Ваша ціль: {goal}.\n"
 
-        if user.sex == "male":
-            calories = round((9.99 * user.weight) + (6.25 * user.height) - (4.92 * user.age) + 5, 2)
-        else:
-            calories = round((9.99 * user.weight) + (6.25 * user.height) - (4.92 * user.age) - 161, 2)
-        if user.workout_time:
-            water = f"{round(30 * user.weight + 500 * user.workout_time)}-{round(35 * user.weight + 500 * user.workout_time)}"
-        else:
-            water = f"{round(30 * user.weight)}-{round(35 * user.weight)}"
-        msg += f"Ваші калорії: {calories} ккал.\n" \
-               f"Ваш водневий баланс: {water} мл.\n"
+    if user.age and user.weight and user.height and user.sex and user.activity and user.goal:
+        i = 10 * user.weight + 6.25 * user.height - 5 * user.age + (5 if user.sex == "male" else -161)
+        activity_values = [1.2, 1.374, 1.4625, 1.55, 1.6375, 1.725, 1.9]
+        a = activity_values[user.activity - 1]
+        goal_values = [1, 1.2, 0.8]
+        g = goal_values[user.goal - 1]
+        n = i * a * g
+
+        msg += f"Ваші калорії: {n} ккал.\n"
 
     callback = {
         "mt": "profile_op_s"
@@ -109,7 +130,8 @@ def profile(message):
 def open_profile_settings_request_callback(call):
     change_markup = types.InlineKeyboardMarkup()
     for button_name, button_value in [("Змінити стать", "sex"), ("Змінити вік", "age"), ("Змінити зріст", "height"),
-                                      ("Змінити вагу", "weight"), ("Змінити час тренування", "time")]:
+                                      ("Змінити вагу", "weight"), ("Змінити фіз. активність", "activity"),
+                                      ("Змінити ціль", "goal")]:
         callback = {
             "mt": "prfile_chng",
             "op": button_value
@@ -131,22 +153,28 @@ def change_profile(call):
     elif data.get("op") == "weight":
         msg = "Введіть нову вагу в кг:"
     elif data.get("op") == "height":
-        msg = "Введіть новий зріст у метрах:"
-    elif data.get("op") == "time":
-        msg = "Введіть новий час тренування у годинах (Наприклад одна година, тридцять хвилин буде 1.5):"
+        msg = "Введіть новий зріст у сантиметрах:"
+    elif data.get("op") == "activity":
+        msg = "Оберіть рівень вашої фізичної активності:"
+    elif data.get("op") == "goal":
+        msg = "Оберіть вашу ціль:"
     else:
         msg = "Оберіть нову стать:"
 
     change_markup = types.InlineKeyboardMarkup()
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=change_markup)
-    if data.get("op") != "sex":
-        bot.send_message(call.message.chat.id, msg)
-        bot.register_next_step_handler(call.message, change_profile_db, data.get("op"))
-    else:
+    if data.get("op") in ["activity", "goal", "sex"]:
+        if data.get("op") == "activity":
+            values = zip(*get_activity_lists())
+        elif data.get("op") == "goal":
+            values = zip(*get_goal_lists())
+        else:
+            values = [("Чоловік", "male"), ("Жінка", "female")]
         markup = types.InlineKeyboardMarkup()
-        for button_name, button_value in [("Чоловік", "male"), ("Жінка", "female")]:
+        for button_name, button_value in values:
             callback = {
-                "mt": "chng_sex",
+                "mt": "chng_w_b",
+                "op": data.get("op"),
                 "v": button_value
             }
             button = types.InlineKeyboardButton(button_name,
@@ -155,20 +183,26 @@ def change_profile(call):
                                                     separators=(',', ':')))
             markup.add(button)
         bot.send_message(call.message.chat.id, msg, reply_markup=markup)
+    else:
+        bot.send_message(call.message.chat.id, msg)
+        bot.register_next_step_handler(call.message, change_profile_db, data.get("op"))
 
 
-@bot.callback_query_handler(func=lambda call: check_callback(call, "chng_sex"))
-def change_sex(call):
+@bot.callback_query_handler(func=lambda call: check_callback(call, "chng_w_b"))
+def change_activity_sex_goal(call):
     data = json.loads(call.data)
     user = get_current_user(call.message.chat.id)
-    user.sex = data.get("v")
+    if data.get("op") == "activity":
+        user.activity = data.get("v")
+    elif data.get("op") == "goal":
+        user.goal = data.get("v")
+    else:
+        user.sex = data.get("v")
     session.commit()
     change_markup = types.InlineKeyboardMarkup()
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                   reply_markup=change_markup)
-    bot.send_message(call.message.chat.id, "Стать успішно змінено!")
-
-    user = get_current_user(call.message.chat.id)
+    bot.send_message(call.message.chat.id, "Рівень фізичної активності успішно змінено!")
     create_profile_message(user, call.message.chat.id)
 
 
@@ -499,8 +533,6 @@ def change_profile_db(message, value_to_change):
             user.weight = float(message.text.strip().replace(",", "."))
         elif value_to_change == "height":
             user.height = float(message.text.strip().replace(",", "."))
-        elif value_to_change == "time":
-            user.workout_time = float(message.text.strip().replace(",", "."))
         session.commit()
         bot.send_message(message.chat.id, "Значення успішно змінено!")
         create_profile_message(user, message.chat.id)
