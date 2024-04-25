@@ -25,7 +25,7 @@ def is_admin(uid):
     if user:
         return user.admin_status
     else:
-        return True  # Temporary True for now
+        return False  # Temporary True for now
 
 
 def for_admin():
@@ -105,8 +105,19 @@ def create_profile_message(user, chat_id):
         goal_values = [1, 1.2, 0.8]
         g = goal_values[user.goal - 1]
         n = i * a * g
-
-        msg += f"Ваші калорії: {n} ккал.\n"
+        water_min = round((30 * user.weight) + 285.714286 * user.activity)
+        water_max = round((35 * user.weight) + 285.714286 * user.activity)
+        protein_min = round(n * .3 / 4.1)
+        protein_max = round(n * .35 / 4.1)
+        carbs_min = round(n * .45 / 4.1)
+        carbs_max = round(n * .5 / 4.1)
+        fat_min = round(n * .15 / 9.3)
+        fat_max = round(n * .2 / 9.3)
+        msg += f"Споживання калорій: {round(n)} ккал.\n" \
+               f"Споживання води: {water_min}-{water_max} мл.\n" \
+               f"Споживання білка: {protein_min}-{protein_max} гр.\n" \
+               f"Споживання вуглеводів: {carbs_min}-{carbs_max} гр.\n" \
+               f"Споживання жирів: {fat_min}-{fat_max} гр."
 
     callback = {
         "mt": "profile_op_s"
